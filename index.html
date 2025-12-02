@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SOLMATH — Buat Karakter</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{
+      margin:0;background:#0b0f16;color:#e8eefc;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      display:grid;place-items:center;
+    }
+    .frame{
+      width:min(100vw,1100px); aspect-ratio:16/9;
+      position:relative; overflow:hidden; border-radius:18px;
+      box-shadow:0 24px 60px rgba(0,0,0,.45); background:#0a0f1c;
+    }
+    .stage{position:absolute; inset:0}
+    .stage img.bg{
+      width:100%; height:100%; object-fit:cover; display:block;
+      user-select:none; -webkit-user-drag:none;
+    }
+    .abs{position:absolute}
+    .click{cursor:pointer; user-select:none}
+    .btnimg{transition:transform .15s ease}
+    .btnimg:hover{transform:scale(1.04)}
+    .btnimg:active{transform:scale(.96)}
+
+    .previewWrap{display:grid; place-items:center; border-radius:18px}
+    .avatarImg{
+      max-width:100%; max-height:100%; object-fit:contain; display:block;
+      filter:drop-shadow(0 8px 18px rgba(0,0,0,.55));
+      user-select:none; -webkit-user-drag:none;
+    }
+
+    .namewrap{
+      display:flex; align-items:center; padding:12px 18px;
+      background:#ffe6c8; border:3px solid #9b5a55;
+      border-radius:999px; box-shadow: 8px 10px 0 #d2817c;
+    }
+    .namewrap input{
+      appearance:none; border:0; outline:none; background:transparent;
+      width:100%; font-size:24px; font-weight:800; color:#5b3c2a;
+    }
+
+    .back{
+      left:16px; bottom:16px; z-index:5; padding:10px 16px;
+      border-radius:10px; border:1px solid rgba(255,255,255,.2);
+      background:rgba(0,0,0,.45); color:#fff; font-weight:700; cursor:pointer;
+      backdrop-filter:saturate(120%) blur(6px);
+    }
+    .back:hover{background:rgba(255,255,255,.12)}
+  </style>
+</head>
+<body>
+  <audio id="bgm" src="bgmusic.mp3" autoplay loop></audio>
+  <main class="frame">
+    <section class="stage" id="stage">
+      <img class="bg" id="bg" src="buat karakter template.png" alt="Buat Karaktermu">
+
+      <div id="preview" class="abs previewWrap">
+        <img id="avatarImg" class="avatarImg" src="" alt="Karakter pilihan">
+      </div>
+
+      <img id="arrowL" class="abs click btnimg" src="tombol kiri.png"  alt="Sebelumnya">
+      <img id="arrowR" class="abs click btnimg" src="tombol kanan.png" alt="Berikutnya">
+
+      <img id="btnPilih"   class="abs click btnimg" src="tombol pilih.png"   alt="PILIH">
+      <img id="btnSelesai" class="abs click btnimg" src="tombol selesai.png" alt="SELESAI">
+
+      <div id="nameWrap" class="abs namewrap">
+        <input id="nameInput" type="text" maxlength="18" placeholder="Nama detektif..." autocomplete="off" />
+      </div>
+
+      <button class="abs back" id="btnBack">⟵ Kembali</button>
+    </section>
+  </main>
+
+  <script>
+  (function(){
+    // Basis ukuran desain kanvas (px)
+    const BASE_W = 1365, BASE_H = 768;
+    const R = (x,y,w,h)=>({x,y,w,h});
+
+    // Koordinat area UI berdasar template 1365x768
+    const rects = {
+      preview:  R(170, 210, 270, 270),
+      arrowL:   R(70,  370, 100, 100),
+      arrowR:   R(420, 370, 100, 100),
+      pilih:    R(150, 600, 240, 85),
+      nameWrap: R(550, 410, 420, 85),
+      selesai:  R(600, 600, 300, 85),
+      backBtn:  R(16,  720, 120, 40) // hanya untuk posisi relatif jika ingin
+    };
+
+    // Daftar karakter
+    const characters = [
+      { key: 'female', src: 'karakter 1.png', label: 'Perempuan' },
+      { key: 'male',   src: 'karakter 2.png', label: 'Laki-laki' },
+      { key: 'male', src: 'karakter 3.png', label: 'Laki-laki'},
+      { key: 'male', src: 'karakter 4.png', label: 'Laki-laki'}
+    ];
+    let idx = 0;
+
+    // Map rect -> posisi layar (ikuti object-fit:cover)
+    function mapRect(imgEl, rect, target){
+      const box = imgEl.getBoundingClientRect();
+      const imgRatio = BASE_W/BASE_H;
+      const boxRatio = box.width/box.height;
+      let renderW, renderH, offsetX, offsetY;
+      if (boxRatio > imgRatio) { // tinggi penuh
+        renderH = box.height; renderW = renderH * imgRatio;
+        offsetX = box.x + (box.width - renderW)/2; offsetY = box.y;
+      } else {                   // lebar penuh
+        renderW = box.width; renderH = renderW / imgRatio;
+        offsetX = box.x; offsetY = box.y + (box.height - renderH)/2;
+      }
+      const sx = renderW/BASE_W, sy = renderH/BASE_H;
+      target.style.left   = (offsetX + rect.x*sx) + 'px';
+      target.style.top    = (offsetY + rect.y*sy) + 'px';
+      target.style.width  = (rect.w*sx) + 'px';
+      target.style.height = (rect.h*sy) + 'px';
+    }
+
+    // DOM
+    const bg         = document.getElementById('bg');
+    const preview    = document.getElementById('preview');
+    const avatarImg  = document.getElementById('avatarImg');
+    const arrowL     = document.getElementById('arrowL');
+    const arrowR     = document.getElementById('arrowR');
+    const btnPilih   = document.getElementById('btnPilih');
+    const btnSelesai = document.getElementById('btnSelesai');
+    const nameWrap   = document.getElementById('nameWrap');
+    const nameInput  = document.getElementById('nameInput');
+    const btnBack    = document.getElementById('btnBack');
+
+    // Layout
+    function layout(){
+      mapRect(bg, rects.preview,  preview);
+      mapRect(bg, rects.arrowL,   arrowL);
+      mapRect(bg, rects.arrowR,   arrowR);
+      mapRect(bg, rects.pilih,    btnPilih);
+      mapRect(bg, rects.selesai,  btnSelesai);
+      mapRect(bg, rects.nameWrap, nameWrap);
+      // btnBack diposisikan via CSS tetap (pojok kiri bawah)
+    }
+    window.addEventListener('load', layout);
+    window.addEventListener('resize', layout);
+
+    // Render avatar
+    function render(){
+      const item = characters[idx];
+      avatarImg.src = item.src;
+      avatarImg.alt = 'Karakter: ' + item.label;
+    }
+    render();
+
+    // Interaksi
+    arrowL.addEventListener('click', ()=>{ idx = (idx - 1 + characters.length) % characters.length; render(); });
+    arrowR.addEventListener('click', ()=>{ idx = (idx + 1) % characters.length; render(); });
+
+    btnPilih.addEventListener('click', ()=>{
+      const item = characters[idx];
+      const nm = nameInput.value.trim() || 'Detektif';
+      alert(`Dipilih:\n• Nama: ${nm}\n• Karakter: ${item.label}`);
+    });
+
+    btnSelesai.addEventListener('click', ()=>{
+    const nm = nameInput.value.trim();
+    if(!nm){ nameInput.focus(); return; }
+
+    const item = characters[idx];
+    // simpan agar bisa dipakai di slide 3
+   localStorage.setItem('solmath_name', nm);
+   localStorage.setItem('solmath_character_key', item.key);
+   localStorage.setItem('solmath_character_src', item.src);
+
+   // ⇨ pindah ke slide 3 (nama file sesuai permintaanmu)
+   window.location.href = 'slde3.html';
+  });
+
+
+    btnBack.addEventListener('click', ()=> window.location.href = 'index.html');
+
+    window.addEventListener('keydown', (e)=>{
+      if(e.key==='ArrowLeft')  arrowL.click();
+      if(e.key==='ArrowRight') arrowR.click();
+      if(e.key==='Enter'){ e.preventDefault(); btnSelesai.click(); }
+      if(e.key==='Escape'){ e.preventDefault(); btnBack.click(); }
+    });
+
+    // Preload
+    characters.forEach(c => { const im=new Image(); im.src=c.src; });
+  })();
+  </script>
+</body>
+</html>
