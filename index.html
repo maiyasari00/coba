@@ -79,121 +79,132 @@
   </main>
 
   <script>
-  (function(){
-    // Basis ukuran desain kanvas (px)
-    const BASE_W = 1365, BASE_H = 768;
-    const R = (x,y,w,h)=>({x,y,w,h});
+(function(){
+  // Basis ukuran desain (ukuran gambar template saat didesain)
+  const BASE_W = 1365, BASE_H = 768;
+  const R = (x,y,w,h)=>({x,y,w,h});
 
-    // Koordinat area UI berdasar template 1365x768
-    const rects = {
-      preview:  R(170, 210, 270, 270),
-      arrowL:   R(70,  370, 100, 100),
-      arrowR:   R(420, 370, 100, 100),
-      pilih:    R(150, 600, 240, 85),
-      nameWrap: R(550, 410, 420, 85),
-      selesai:  R(600, 600, 300, 85),
-      backBtn:  R(16,  720, 120, 40) // hanya untuk posisi relatif jika ingin
-    };
+  // Koordinat area UI berdasar template 1365x768
+  const rects = {
+    preview:  R(170, 210, 270, 270),
+    arrowL:   R(70,  370, 100, 100),
+    arrowR:   R(420, 370, 100, 100),
+    pilih:    R(150, 600, 240, 85),
+    nameWrap: R(550, 410, 420, 85),
+    selesai:  R(600, 600, 300, 85)
+  };
 
-    // Daftar karakter
-    const characters = [
-      { key: 'female', src: 'karakter 1.png', label: 'Perempuan' },
-      { key: 'male',   src: 'karakter 2.png', label: 'Laki-laki' },
-      { key: 'male', src: 'karakter 3.png', label: 'Laki-laki'},
-      { key: 'male', src: 'karakter 4.png', label: 'Laki-laki'}
-    ];
-    let idx = 0;
+  // Daftar karakter
+  const characters = [
+    { key: 'female', src: 'karakter 1.png', label: 'Perempuan' },
+    { key: 'male',   src: 'karakter 2.png', label: 'Laki-laki' },
+    { key: 'male',   src: 'karakter 3.png', label: 'Laki-laki' },
+    { key: 'male',   src: 'karakter 4.png', label: 'Laki-laki' }
+  ];
+  let idx = 0;
 
-    // Map rect -> posisi layar (ikuti object-fit:cover)
-    function mapRect(imgEl, rect, target){
-      const box = imgEl.getBoundingClientRect();
-      const imgRatio = BASE_W/BASE_H;
-      const boxRatio = box.width/box.height;
-      let renderW, renderH, offsetX, offsetY;
-      if (boxRatio > imgRatio) { // tinggi penuh
-        renderH = box.height; renderW = renderH * imgRatio;
-        offsetX = box.x + (box.width - renderW)/2; offsetY = box.y;
-      } else {                   // lebar penuh
-        renderW = box.width; renderH = renderW / imgRatio;
-        offsetX = box.x; offsetY = box.y + (box.height - renderH)/2;
-      }
-      const sx = renderW/BASE_W, sy = renderH/BASE_H;
-      target.style.left   = (offsetX + rect.x*sx) + 'px';
-      target.style.top    = (offsetY + rect.y*sy) + 'px';
-      target.style.width  = (rect.w*sx) + 'px';
-      target.style.height = (rect.h*sy) + 'px';
-    }
+  // ===== DOM =====
+  const stage      = document.getElementById('stage');
+  const bg         = document.getElementById('bg');
+  const preview    = document.getElementById('preview');
+  const avatarImg  = document.getElementById('avatarImg');
+  const arrowL     = document.getElementById('arrowL');
+  const arrowR     = document.getElementById('arrowR');
+  const btnPilih   = document.getElementById('btnPilih');
+  const btnSelesai = document.getElementById('btnSelesai');
+  const nameWrap   = document.getElementById('nameWrap');
+  const nameInput  = document.getElementById('nameInput');
+  const btnBack    = document.getElementById('btnBack');
 
-    // DOM
-    const bg         = document.getElementById('bg');
-    const preview    = document.getElementById('preview');
-    const avatarImg  = document.getElementById('avatarImg');
-    const arrowL     = document.getElementById('arrowL');
-    const arrowR     = document.getElementById('arrowR');
-    const btnPilih   = document.getElementById('btnPilih');
-    const btnSelesai = document.getElementById('btnSelesai');
-    const nameWrap   = document.getElementById('nameWrap');
-    const nameInput  = document.getElementById('nameInput');
-    const btnBack    = document.getElementById('btnBack');
+  // ===== Fungsi penting: mapping koordinat desain -> layar =====
+  function mapRect(container, rect, target){
+    // ukuran kontainer (.stage) saat ini
+    const w = container.clientWidth;
+    const h = container.clientHeight;
 
-    // Layout
-    function layout(){
-      mapRect(bg, rects.preview,  preview);
-      mapRect(bg, rects.arrowL,   arrowL);
-      mapRect(bg, rects.arrowR,   arrowR);
-      mapRect(bg, rects.pilih,    btnPilih);
-      mapRect(bg, rects.selesai,  btnSelesai);
-      mapRect(bg, rects.nameWrap, nameWrap);
-      // btnBack diposisikan via CSS tetap (pojok kiri bawah)
-    }
-    window.addEventListener('load', layout);
-    window.addEventListener('resize', layout);
+    // karena frame 16:9 dan desain 1365x768 juga 16:9,
+    // skalanya sama di X dan Y
+    const sx = w / BASE_W;
+    const sy = h / BASE_H;
 
-    // Render avatar
-    function render(){
-      const item = characters[idx];
-      avatarImg.src = item.src;
-      avatarImg.alt = 'Karakter: ' + item.label;
-    }
-    render();
+    // posisi absolut DI DALAM .stage (bukan terhadap viewport)
+    target.style.left   = (rect.x * sx) + 'px';
+    target.style.top    = (rect.y * sy) + 'px';
+    target.style.width  = (rect.w * sx) + 'px';
+    target.style.height = (rect.h * sy) + 'px';
+  }
 
-    // Interaksi
-    arrowL.addEventListener('click', ()=>{ idx = (idx - 1 + characters.length) % characters.length; render(); });
-    arrowR.addEventListener('click', ()=>{ idx = (idx + 1) % characters.length; render(); });
+  // Atur ulang layout saat load & resize
+  function layout(){
+    mapRect(stage, rects.preview,  preview);
+    mapRect(stage, rects.arrowL,   arrowL);
+    mapRect(stage, rects.arrowR,   arrowR);
+    mapRect(stage, rects.pilih,    btnPilih);
+    mapRect(stage, rects.selesai,  btnSelesai);
+    mapRect(stage, rects.nameWrap, nameWrap);
+  }
 
-    btnPilih.addEventListener('click', ()=>{
-      const item = characters[idx];
-      const nm = nameInput.value.trim() || 'Detektif';
-      alert(`Dipilih:\n• Nama: ${nm}\n• Karakter: ${item.label}`);
-    });
+  window.addEventListener('load', layout);
+  window.addEventListener('resize', layout);
 
-    btnSelesai.addEventListener('click', ()=>{
-    const nm = nameInput.value.trim();
-    if(!nm){ nameInput.focus(); return; }
-
+  // ===== TAMPILKAN AVATAR =====
+  function render(){
     const item = characters[idx];
-    // simpan agar bisa dipakai di slide 3
-   localStorage.setItem('solmath_name', nm);
-   localStorage.setItem('solmath_character_key', item.key);
-   localStorage.setItem('solmath_character_src', item.src);
+    avatarImg.src = item.src;
+    avatarImg.alt = 'Karakter: ' + item.label;
+  }
+  render();
 
-   // ⇨ pindah ke slide 3 (nama file sesuai permintaanmu)
-   window.location.href = 'slde3.html';
+  // Navigasi karakter
+  arrowL.addEventListener('click', ()=>{
+    idx = (idx - 1 + characters.length) % characters.length;
+    render();
+  });
+  arrowR.addEventListener('click', ()=>{
+    idx = (idx + 1) % characters.length;
+    render();
   });
 
+  // Tombol PILIH (opsional, hanya pop-up)
+  btnPilih.addEventListener('click', ()=>{
+    const item = characters[idx];
+    const nm = nameInput.value.trim() || 'Detektif';
+    alert(`Dipilih:\n• Nama: ${nm}\n• Karakter: ${item.label}`);
+  });
 
-    btnBack.addEventListener('click', ()=> window.location.href = 'index.html');
+  // Tombol SELESAI -> simpan ke localStorage lalu ke slide 3
+  btnSelesai.addEventListener('click', ()=>{
+    const nm = nameInput.value.trim();
+    if(!nm){
+      nameInput.focus();
+      return;
+    }
 
-    window.addEventListener('keydown', (e)=>{
-      if(e.key==='ArrowLeft')  arrowL.click();
-      if(e.key==='ArrowRight') arrowR.click();
-      if(e.key==='Enter'){ e.preventDefault(); btnSelesai.click(); }
-      if(e.key==='Escape'){ e.preventDefault(); btnBack.click(); }
-    });
+    const item = characters[idx];
+    localStorage.setItem('solmath_name', nm);
+    localStorage.setItem('solmath_character_key', item.key);
+    localStorage.setItem('solmath_character_src', item.src);
 
-    // Preload
-    characters.forEach(c => { const im=new Image(); im.src=c.src; });
-  })();
-  </script>
-</body>
-</html>
+    window.location.href = 'slde3.html';
+  });
+
+  // Tombol kembali
+  btnBack.addEventListener('click', ()=>{
+    window.location.href = 'index.html';
+  });
+
+  // Keyboard shortcut
+  window.addEventListener('keydown', (e)=>{
+    if(e.key === 'ArrowLeft')  arrowL.click();
+    if(e.key === 'ArrowRight') arrowR.click();
+    if(e.key === 'Enter'){ e.preventDefault(); btnSelesai.click(); }
+    if(e.key === 'Escape'){ e.preventDefault(); btnBack.click(); }
+  });
+
+  // Preload gambar karakter
+  characters.forEach(c=>{
+    const im = new Image();
+    im.src = c.src;
+  });
+})();
+</script>
